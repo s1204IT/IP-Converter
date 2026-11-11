@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IP Converter</title>
+  <style>
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: .8em;
+      box-sizing: border-box
+    }
+
+    h1 {
+      font-size: 1.4em;
+      margin: .3em 0
+    }
+
+    p {
+      margin: .3em 0
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      font: inherit;
+      padding: .4em
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em
+    }
+
+    td,
+    th {
+      font-weight: 400;
+      border-bottom: 1px solid #ccc;
+      padding: .25em .4em;
+      text-align: left;
+      word-break: break-all
+    }
+
+    th {
+      width: 9em;
+      font-weight: 400;
+      color: #666
+    }
+
+    button {
+      padding: 2px 10px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 1px 2px #0001;
+      cursor: pointer
+    }
+
+    button:hover {
+      background: #eee
+    }
+  </style>
+</head>
+
+<body>
+  <h1>IP Converter</h1>
+  <p><input id="ip" placeholder="127.0.0.1" value="127.0.0.1" autofocus></p>
+  <table id="out"></table>
+  <script>
+    function num(x) {
+      if (/^0x[0-9a-f]+$/i.test(x)) return parseInt(x, 16);
+      if (/^0[0-7]+$/.test(x)) return parseInt(x, 8);
+      if (/^[0-9]+$/.test(x)) return parseInt(x, 10);
+      return NaN;
+    }
+
+    function parse(text) {
+      text = text.trim();
+      if (!text) return null;
+      const octets = text.split(".").map(num);
+      if (octets.some(isNaN)) return null;
+      let value;
+      if (octets.length === 1) {
+        if (octets[0] > 0xffffffff) return null;
+        value = octets[0];
+      } else if (octets.length === 2) {
+        if (octets[0] > 0xff || octets[1] > 0xffffff) return null;
+        value = (octets[0] << 24) | octets[1];
+      } else if (octets.length === 3) {
+        if (octets[0] > 0xff || octets[1] > 0xff || octets[2] > 0xffff) return null;
+        value = (octets[0] << 24) | (octets[1] << 16) | octets[2];
+      } else if (octets.length === 4) {
+        if (octets.some(x => x > 0xff)) return null;
+        value = (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+      } else {
+        return null;
+      }
+      value = value >>> 0;
+      return [value >>> 24 & 255, value >>> 16 & 255, value >>> 8 & 255, value & 255];
+    }
+
+    function copy(button, text) {
+      navigator.clipboard.writeText(text);
+      const label = button.textContent;
+      button.textContent = "Copied";
+      setTimeout(() => button.textContent = label, 500);
+    }
+
+    function render() {
+      const octets = parse(document.getElementById("ip").value);
+      const table = document.getElementById("out");
+      if (!octets) { table.innerHTML = "<tr><td>Invalid</td></tr>"; return; }
+      const value = ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0;
+      const rows = [
+        ["normal", octets.join(".")],
+        ["3-part", octets[0] + "." + octets[1] + "." + ((octets[2] << 8) | octets[3])],
+        ["2-part", octets[0] + "." + ((octets[1] << 16) | (octets[2] << 8) | octets[3])],
+        ["dec", String(value)],
+        ["hex", "0x" + value.toString(16).padStart(8, "0")],
+        ["oct", "0" + value.toString(8)]
+      ];
+      table.innerHTML = rows.map(([name, output]) =>
+        "<tr><th>" + name + "</th><td><b>" + output + "</b>&nbsp;<button onClick=\"copy(this,'" + output + "')\">Copy</button></td></tr>"
+      ).join("");
+    }
+
+    const input = document.getElementById("ip");
+    const query = new URLSearchParams(location.search).get("ip");
+    if (query) {
+      input.value = query;
+    } else {
+      input.focus();
+      input.select();
+    }
+
+    document.getElementById("ip").addEventListener("input", render);
+    render();
+  </script>
+</body>
+
+</html>
